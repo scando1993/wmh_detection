@@ -327,9 +327,12 @@ for i in range(np.shape(test_masks)[0]):
     filename_resultImage = os.path.join(result_file,'Singapore', str(i), 'result.nii.gz')
     filename_Images = os.path.join(result_file,'Singapore', str(i) , 'images.nii.gz')
     filename_Images_orig = os.path.join(result_file,'Singapore', str(i) , 'wmh.nii.gz')
-    sitk.WriteImage(sitk.GetImageFromArray(test_masks[i, ...]), filename_resultImage)
-    sitk.WriteImage(sitk.GetImageFromArray(true_masks[i, ...]), filename_Images_orig)
-    sitk.WriteImage(sitk.GetImageFromArray(val_image[i, ...]), filename_Images)
+    # sitk.WriteImage(sitk.GetImageFromArray(test_masks[i, ...]), filename_resultImage)
+    # sitk.WriteImage(sitk.GetImageFromArray(true_masks[i, ...]), filename_Images_orig)
+    # sitk.WriteImage(sitk.GetImageFromArray(val_image[i, ...]), filename_Images)
+    sitk.WriteImage(sitk.GetImageFromArray(np.transpose(test_masks[i, ...])), filename_resultImage)
+    sitk.WriteImage(sitk.GetImageFromArray(np.transpose(true_masks[i, ...])), filename_Images_orig)
+    sitk.WriteImage(sitk.GetImageFromArray(np.transpose(val_image[i, ...])), filename_Images)
 
 ########## calculate total Dice Coefficient as a measure of similarity between predicted mask and true mask
 true_mask_f = true_masks.flatten()
