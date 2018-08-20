@@ -8,8 +8,9 @@ import os
 import keras
 keras.__version__
 
+import SimpleITK as sitk
 from keras.models import Model,load_model
-from keras.layers import Input, concatenate,Activation, Conv3D, MaxPooling3D,UpSampling3D, BatchNormalization, Dropout
+from keras.layers import Input, concatenate,Activation, Conv3D, MaxPooling3D,UpSampling3D, BatchNormalization, Dropout, ZeroPadding3D
 from keras.optimizers import Adam, SGD
 from keras.callbacks import ModelCheckpoint
 from keras import backend as K
@@ -18,18 +19,23 @@ from keras.callbacks import EarlyStopping, History
 K.set_image_dim_ordering('tf')
 K.image_dim_ordering()
 
+model_file = '/media/fimcp/DATA/WMH/Models/'
+result_file = '/media/fimcp/DATA/WMH/Results/'
 
 ROWS=128
 COLS=128
 
-imgs_utrecht = np.load('utrecht_flair(128)aug.npy')
-mask_utrecht = np.load('utrecht_mask(128)aug.npy')
+imgs_utrecht = np.load(model_file + 'utrecht_flair(200)aug.npy')
+imgs_t1_utrecht = np.load(model_file + 'utrecht_t1(200)aug.npy')
+mask_utrecht = np.load(model_file + 'utrecht_mask(200)aug.npy')
 
-imgs_amsterdam = np.load('amsterdam_flair(128)aug.npy')
-mask_amsterdam= np.load('amsterdam_mask(128)aug.npy')   
+imgs_amsterdam = np.load(model_file + 'amsterdam_flair(200)aug.npy')
+imgs_t1_amsterdam = np.load(model_file + 'amsterdam_t1(200)aug.npy')
+mask_amsterdam= np.load(model_file + 'amsterdam_mask(200)aug.npy')
 
-imgs_singapore = np.load('singapore_flair(128)aug.npy')
-mask_singapore= np.load('singapore_mask(128)aug.npy')   
+imgs_singapore = np.load(model_file + 'singapore_flair(200)aug.npy')
+imgs_t1_singapore = np.load(model_file + 'singapore_t1(200)aug.npy')
+mask_singapore= np.load(model_file + 'singapore_mask(200)aug.npy')
 
 
 print(imgs_utrecht.shape)
@@ -49,18 +55,46 @@ plt.imshow(mask_utrecht[12][:,:,24],cmap='gray')
 ## Slice the data array so z-dimension is the same across samples
 #### get 16 slices for model training to reduce computation time
 
+# # train_img_ut=imgs_utrecht[:,:,:,9:48] + imgs_t1_utrecht[:,:,:,9:48]
+# train_img_ut=imgs_utrecht[:,:,:,9:48]
+# train_mask_ut=mask_utrecht[:,:,:,9:48]
+#
+# # train_img_am=imgs_amsterdam[:,:,:,28:67] + imgs_t1_amsterdam[:,:,:,28:67]
+# train_img_am=imgs_amsterdam[:,:,:,28:67]
+# train_mask_am=mask_amsterdam[:,:,:,28:67]
+#
+# # train_img_si=imgs_singapore[:,:,:,9:48] + imgs_t1_singapore[:,:,:,9:48]
+# train_img_si=imgs_singapore[:,:,:,9:48]
+# train_mask_si=mask_singapore[:,:,:,9:48]
+
 train_img_ut=imgs_utrecht[:,:,:,20:36]
+train_img_t1_ut=imgs_t1_utrecht[:,:,:,20:36]
 train_mask_ut=mask_utrecht[:,:,:,20:36]
 
 train_img_am=imgs_amsterdam[:,:,:,45:61]
+train_img_t1_am=imgs_t1_amsterdam[:,:,:,45:61]
 train_mask_am=mask_amsterdam[:,:,:,45:61]
 
 train_img_si=imgs_singapore[:,:,:,20:36]
+train_img_t1_si=imgs_t1_singapore[:,:,:,20:36]
 train_mask_si=mask_singapore[:,:,:,20:36]
 
 #concate the arrays, and add one more dimension for Keras model
-train_img_set=np.expand_dims(np.concatenate((train_img_ut, train_img_am, train_img_si), axis=0), 4)
-train_mask_set=np.expand_dims(np.concatenate((train_mask_ut, train_mask_am, train_mask_si), axis=0), 4)
+# train_img_set=np.expand_dims(np.concatenate((train_img_ut, train_img_am, train_img_si), axis=0), 4)
+# train_img_set=np.expand_dims((train_img_ut), 4)
+# train_img_set=np.expand_dims((train_img_am), 4)
+train_img_set=np.expand_dims((train_img_si), 4)
+
+train_img_t1_set=np.expand_dims(np.concatenate((train_img_t1_ut, train_img_t1_am, train_img_t1_si), axis=0), 4)
+
+# train_mask_set=np.expand_dims(np.concatenate((train_mask_ut, train_mask_am, train_mask_si), axis=0), 4)
+# train_mask_set=np.expand_dims((train_mask_ut), 4)
+# train_mask_set=np.expand_dims((train_mask_am), 4)
+train_mask_set=np.expand_dims((train_mask_si), 4)
+
+# train_img_set=np.concatenate((train_img_ut, train_img_am, train_img_si), axis=0)
+# train_mask_set=np.concatenate((train_mask_ut, train_mask_am, train_mask_si), axis=0)
+
 print(train_img_set.shape)
 print(train_mask_set.shape)
 
@@ -68,19 +102,33 @@ print(train_mask_set.shape)
 train_img_set-=np.mean(train_img_set)
 train_img_set/=np.std(train_img_set)
 
+train_img_t1_set = train_img_t1_set.astype('float64')
+train_img_t1_set-=np.mean(train_img_t1_set)
+train_img_t1_set/=np.std(train_img_t1_set)
+
+
 ##### separate original images from augemented to keep track 
 train_img_orig=train_img_set[0:len(train_img_set):4]
 train_img_rotate=train_img_set[1:len(train_img_set):4]
 train_img_shear=train_img_set[2:len(train_img_set):4]
 train_img_zoom=train_img_set[3:len(train_img_set):4]
 
+train_img_t1_orig = train_img_t1_set[0:len(train_img_t1_set):4]
+train_img_t1_rotate = train_img_t1_set[1:len(train_img_t1_set):4]
+train_img_t1_shear = train_img_t1_set[2:len(train_img_t1_set):4]
+train_img_t1_zoom = train_img_t1_set[3:len(train_img_t1_set):4]
+
 train_mask_orig=train_mask_set[0:len(train_mask_set):4]
 train_mask_rotate=train_mask_set[1:len(train_mask_set):4]
 train_mask_shear=train_mask_set[2:len(train_mask_set):4]
 train_mask_zoom=train_mask_set[3:len(train_mask_set):4]
 
+# np.save(model_file + 'imgs_three_datasets_two_channels.npy',train_img_orig)
+# np.save(model_file + 'imgs_mask_three_datasets_two_channels.npy',train_mask_orig)
+
 ###### lump augmented images together
 img_aug=np.concatenate((train_img_rotate, train_img_shear, train_img_zoom), axis=0)
+img_t1_aug=np.concatenate((train_img_t1_rotate, train_img_t1_shear, train_img_t1_zoom), axis=0)
 mask_aug=np.concatenate((train_mask_rotate,train_mask_shear,train_mask_zoom ), axis=0)
 
 
@@ -127,40 +175,81 @@ def f1(y_true, y_pred):
 ################################### Build 3D model architecture (memory intensive!) ##############################
 def wmh_unet():
     inputs = Input((ROWS, COLS,16,1))
-    conv1 = Conv3D(32, (3,3,1), activation='relu', padding='same')(inputs)
-    conv1 = Conv3D(64, (3,3,1), activation='relu', padding='same')(conv1)
-    pool1 = MaxPooling3D(pool_size=(2,2,1))(conv1)
+    conv1 = Conv3D(32, (3, 3, 1), activation='relu', padding='same')(inputs)
+    conv1 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling3D(pool_size=(2, 2, 1))(conv1)
 
-    conv2 = Conv3D(64, (3,3,1), activation='relu', padding='same')(pool1)
-    conv2 = Conv3D(128, (3,3,1), activation='relu', padding='same')(conv2)
-    pool2 = MaxPooling3D(pool_size=(2,2,1))(conv2)
-    
-    conv3 = Conv3D(128, (3,3,3), activation='relu', padding='same')(pool2)
-    conv3 = Conv3D(256, (3,3,3), activation='relu', padding='same')(conv3)
-    pool3 = MaxPooling3D(pool_size=(2,2,2))(conv3)
-    
-    conv4=Conv3D(256, (3,3,3), activation='relu', padding='same')(pool3)
-    conv4=Conv3D(512, (3,3,3), activation='relu', padding='same')(conv4)
+    conv2 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(pool1)
+    conv2 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling3D(pool_size=(2, 2, 1))(conv2)
 
-        #expansive/synthesis path
-    up5 = concatenate([Conv3D(512, (3,3,3), activation='relu', padding='same')(UpSampling3D((2,2,2))(conv4)), conv3], axis=4)
-    conv5 = Conv3D(256, (3,3,3), activation='relu', padding='same')(up5)
-    conv5 = Conv3D(256, (3,3,3), activation='relu', padding='same')(conv5)
+    conv3 = Conv3D(128, (3, 3, 3), activation='relu', padding='same')(pool2)
+    conv3 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
 
-    up6 = concatenate([Conv3D(256, (3,3,1), activation='relu', padding='same')(UpSampling3D((2,2,1))(conv5)), conv2], axis=4)
-    conv6 = Conv3D(128, (3,3,1), activation='relu', padding='same')(up6)
-    conv6 = Conv3D(128, (3,3,1), activation='relu', padding='same')(conv6)
+    conv4 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(pool3)
+    conv4 = Conv3D(512, (3, 3, 3), activation='relu', padding='same')(conv4)
 
-    up7 = concatenate([Conv3D(128, (3,3,1), activation='relu', padding='same')(UpSampling3D((2,2,1))(conv6)), conv1], axis=4)
-    conv7= Conv3D(64, (3,3,1), activation='relu', padding='same')(up7)
-    conv7 = Conv3D(64, (3,3,1), activation='relu', padding='same')(conv7)
-    
-    conv8 = Conv3D(1, (1,1,1),activation='sigmoid')(conv7)
+    # expansive/synthesis path
+    up5 = concatenate(
+        [Conv3D(512, (3, 3, 3), activation='relu', padding='same')(UpSampling3D((2, 2, 2))(conv4)), conv3], axis=4)
+    conv5 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(up5)
+    conv5 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(conv5)
+
+    up6 = concatenate(
+        [Conv3D(256, (3, 3, 1), activation='relu', padding='same')(UpSampling3D((2, 2, 1))(conv5)), conv2], axis=4)
+    conv6 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(up6)
+    conv6 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(conv6)
+
+    up7 = concatenate(
+        [Conv3D(128, (3, 3, 1), activation='relu', padding='same')(UpSampling3D((2, 2, 1))(conv6)), conv1], axis=4)
+    conv7 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(up7)
+    conv7 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(conv7)
+
+    conv8 = Conv3D(1, (1, 1, 1), activation='sigmoid')(conv7)
 
     model = Model(inputs=[inputs], outputs=[conv8])
-    
+
     return model
 
+def wmh_unet_2():
+    inputs = Input((ROWS, COLS,16,1))
+    conv1 = Conv3D(32, (3, 3, 1), activation='relu', padding='same')(inputs)
+    conv1 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling3D(pool_size=(2, 2, 1))(conv1)
+
+    conv2 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(pool1)
+    conv2 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling3D(pool_size=(2, 2, 1))(conv2)
+
+    conv3 = Conv3D(128, (3, 3, 3), activation='relu', padding='same')(pool2)
+    conv3 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+
+    conv4 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(pool3)
+    conv4 = Conv3D(512, (3, 3, 3), activation='relu', padding='same')(conv4)
+
+    # expansive/synthesis path
+    up5 = concatenate(
+        [Conv3D(512, (3, 3, 3), activation='relu', padding='same')(UpSampling3D((2, 2, 2))(conv4)), conv3], axis=4)
+    conv5 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(up5)
+    conv5 = Conv3D(256, (3, 3, 3), activation='relu', padding='same')(conv5)
+
+    up6 = concatenate(
+        [Conv3D(256, (3, 3, 1), activation='relu', padding='same')(UpSampling3D((2, 2, 1))(conv5)), conv2], axis=4)
+    conv6 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(up6)
+    conv6 = Conv3D(128, (3, 3, 1), activation='relu', padding='same')(conv6)
+
+    up7 = concatenate(
+        [Conv3D(128, (3, 3, 1), activation='relu', padding='same')(UpSampling3D((2, 2, 1))(conv6)), conv1], axis=4)
+    conv7 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(up7)
+    conv7 = Conv3D(64, (3, 3, 1), activation='relu', padding='same')(conv7)
+
+    conv8 = Conv3D(1, (1, 1, 1), activation='sigmoid')(conv7)
+
+    model = Model(inputs=[inputs], outputs=[conv8])
+
+    return model
 
 model=wmh_unet()
 model.compile(optimizer=Adam(lr=2e-5), loss=dice_loss, metrics=[f1])
@@ -170,27 +259,39 @@ model.summary()
 
 ################ optional - load saved weights from previous training  ####################
 
-model.load_weights('XXXXX.h5') #change this to name of weight files
+model.load_weights(model_file + 'training_weights.h5') #change this to name of weight files
 
 ###########################################################################################
 
 early_stopping =EarlyStopping(monitor='val_loss', patience=4)
-model_checkpoint = ModelCheckpoint('training_weights.h5', monitor='val_loss', save_best_only=True,save_weights_only=True)
+model_checkpoint = ModelCheckpoint(model_file + 'training_weights.h5', monitor='val_loss', save_best_only=True,save_weights_only=True)
 
 
 from sklearn.cross_validation import train_test_split
 #majority of original images are used for validation. 
 train_img1, val_img1, train_mask1, val_mask1 = train_test_split(
-    train_img_orig, train_mask_orig, test_size=0.9, random_state=42)
+    train_img_orig, train_mask_orig, test_size=0.99, random_state=42)
 
 train_img2, val_img2, train_mask2, val_mask2 = train_test_split(
     img_aug, mask_aug, test_size=0.15, random_state=42)
+
+# train_img3, val_img3, train_mask3, val_mask3 = train_test_split(
+#     train_img_t1_orig, train_mask_orig, test_size=0.9, random_state=42)
+#
+# train_img4, val_img4, train_mask4, val_mask4 = train_test_split(
+#     img_t1_aug, mask_aug, test_size=0.15, random_state=42)
 
 
 train_img_combined=np.concatenate((train_img1, train_img2), axis=0)
 train_mask_combined=np.concatenate((train_mask1, train_mask2), axis=0)
 val_img_combined=np.concatenate((val_img1, val_img2), axis=0)
 val_mask_combined=np.concatenate((val_mask1, val_mask2), axis=0)
+
+# train_img_t1_combined=np.concatenate((train_img3, train_img4), axis=0)
+# train_mask_t1_combined=np.concatenate((train_mask3, train_mask4), axis=0)
+# val_img_t1_combined=np.concatenate((val_img3, val_img4), axis=0)
+# val_mask_t1_combined=np.concatenate((val_mask3, val_mask4), axis=0)
+
 print(train_img_combined.shape)
 print(val_img_combined.shape)
 
@@ -200,9 +301,12 @@ from sklearn.utils import shuffle
 train_shuffled, train_mask_shuffled = shuffle(train_img_combined, train_mask_combined, random_state=12)
 val_shuffled, val_mask_shuffled = shuffle(val_img_combined, val_mask_combined, random_state=12)
 
+# train_shuffled, train_mask_shuffled = shuffle(train_img_t1_combined, train_mask_t1_combined, random_state=12)
+# val_shuffled, val_mask_shuffled = shuffle(val_img_t1_combined, val_mask_t1_combined, random_state=12)
 
-hist=model.fit(train_shuffled, train_mask_shuffled , batch_size=1, epochs=10, verbose=1, shuffle=True,
-              validation_data=(val_shuffled, val_mask_shuffled),callbacks=[model_checkpoint,early_stopping]) 
+
+# hist=model.fit(train_shuffled, train_mask_shuffled , batch_size=1, epochs=50, verbose=1, shuffle=True,
+#               validation_data=(val_shuffled, val_mask_shuffled),callbacks=[model_checkpoint,early_stopping])
 
 ################### Predict on validation set ##################
 test_pred = model.predict(val_img1, batch_size=1, verbose=1)
@@ -211,6 +315,21 @@ test_masks=np.resize(test_pred, (test_pred.shape[0], test_pred.shape[1], test_pr
 true_masks=np.resize(val_mask1, (val_mask1.shape[0],val_mask1.shape[1],val_mask1.shape[2],val_mask1.shape[3]))
 val_image=np.resize(val_img1, (val_img1.shape[0], val_img1.shape[1], val_img1.shape[2], val_img1.shape[3]))
 
+# test_masks=np.resize(test_pred, (test_pred.shape[3], test_pred.shape[2], test_pred.shape[1],test_pred.shape[0]))
+# true_masks=np.resize(val_mask1, (val_mask1.shape[3],val_mask1.shape[2],val_mask1.shape[1],val_mask1.shape[0]))
+# val_image=np.resize(val_img1, (val_img1.shape[3], val_img1.shape[2], val_img1.shape[1], val_img1.shape[0]))
+
+
+for i in range(np.shape(test_masks)[0]):
+    if not os.path.exists(os.path.join(result_file,'Singapore', str(i))):
+        os.mkdir(os.path.join(result_file,'Singapore', str(i)))
+
+    filename_resultImage = os.path.join(result_file,'Singapore', str(i), 'result.nii.gz')
+    filename_Images = os.path.join(result_file,'Singapore', str(i) , 'images.nii.gz')
+    filename_Images_orig = os.path.join(result_file,'Singapore', str(i) , 'wmh.nii.gz')
+    sitk.WriteImage(sitk.GetImageFromArray(test_masks[i, ...]), filename_resultImage)
+    sitk.WriteImage(sitk.GetImageFromArray(true_masks[i, ...]), filename_Images_orig)
+    sitk.WriteImage(sitk.GetImageFromArray(val_image[i, ...]), filename_Images)
 
 ########## calculate total Dice Coefficient as a measure of similarity between predicted mask and true mask
 true_mask_f = true_masks.flatten()
@@ -238,4 +357,4 @@ def extract_map(model, layer_indexes, sample):
 
 
 #for the down path
-sample_map = extract_map(model, [1,2,4,5,7,8,10], val_img[1:2])
+sample_map = extract_map(model, [1,2,4,5,7,8,10], val_img1[1:2])
