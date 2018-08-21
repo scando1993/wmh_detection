@@ -345,7 +345,6 @@ def main_test(load=True, verbose=False, centers=None, activation_maps=False, plo
             plt.axis('off')
             plt.imshow(activation_maps[i-1])
 
-        plt.axis("off")
         plt.savefig(imagesDir + 'activation_maps.png', bbox_inches='tight')
 
         activation_maps = np.load(dataDir + 'activation_maps_up.npy')
@@ -354,6 +353,7 @@ def main_test(load=True, verbose=False, centers=None, activation_maps=False, plo
         fig = plt.figure(figsize=(columns, rows))
         for i in range(1, columns * rows + 1):
             fig.add_subplot(rows, columns, i)
+            plt.axis('off')
             plt.imshow(activation_maps[i - 1])
         plt.savefig(imagesDir + 'activation_maps_up.png')
 
