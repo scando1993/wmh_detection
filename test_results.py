@@ -342,12 +342,23 @@ def main_test(load=True, verbose=False, centers=None, activation_maps=False, plo
         fig = plt.figure(figsize=(columns, rows))
         for i in range(1, columns * rows + 1):
             fig.add_subplot(rows, columns, i)
+            plt.axis('off')
             plt.imshow(activation_maps[i-1])
-        plt.title("Deformacion de las imagen a lo largo del modelo de aprendizaje")
-        plt.savefig(imagesDir + 'activation_maps.png')
+
+        plt.axis("off")
+        plt.savefig(imagesDir + 'activation_maps.png', bbox_inches='tight')
+
+        activation_maps = np.load(dataDir + 'activation_maps_up.npy')
+        columns = len(activation_maps)
+        rows = 1
+        fig = plt.figure(figsize=(columns, rows))
+        for i in range(1, columns * rows + 1):
+            fig.add_subplot(rows, columns, i)
+            plt.imshow(activation_maps[i - 1])
+        plt.savefig(imagesDir + 'activation_maps_up.png')
 
     plt.show()
 
 
 if "__main__" == __name__:
-    main_test(centers=['Utretch', 'Singapore', 'GE3T'], plot_ind=True)
+    main_test(centers=['Utretch', 'Singapore', 'GE3T'], plot_ind=False, activation_maps=True)

@@ -446,7 +446,9 @@ def main_segmentation(verbose=True, save_files=True, train=False, activation_map
     if activation_maps:
         activation_map_down = extract_map(model, [1, 2, 4, 5, 7, 8, 10], val_img1[1:2])
         np.save(model_file + "activation_maps_down.npy", activation_map_down)
+        activation_map_up = extract_map(model, [12, 13, 15, 17, 18, 20, 25, 27], val_img1[1:2])
+        np.save(model_file + "activation_maps_up.npy", activation_map_up)
 
 
 if "__main__" == __name__:
-    main_segmentation()
+    main_segmentation(activation_maps=True)
