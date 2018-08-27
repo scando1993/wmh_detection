@@ -46,6 +46,7 @@ def dice_loss(y_true, y_pred):
 -----------------------------------------------------------------------------------------------------
 El valor F1 es la media con pesos en la proporcion de que las asignaciones de las clases sean correctas
 contra la proporcion de las asignaciones de clases incorrectas 
+F1-Score Metrix
 -----------------------------------------------------------------------------------------------------
 '''
 

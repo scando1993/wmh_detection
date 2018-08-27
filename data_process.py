@@ -112,7 +112,7 @@ def image_processing(file_path):
         Se realizan las transformaciones de cada imagen T1.
         -----------------------------------------------------------------------------------------------------
         '''
-        for name in glob.glob(img_path + '/T1-SS.nii.gz*'):
+        for name in glob.glob(img_path + '/T1.nii.gz*'):
             flair_img = image.load_img(name)
             t1_data = flair_img.get_data()
             t1_data = np.transpose(t1_data, (1, 0, 2))

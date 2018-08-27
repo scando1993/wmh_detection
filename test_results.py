@@ -79,8 +79,20 @@ def main_test(load=True, verbose=False, centers=None, activation_maps=False, plo
                 plt.figure(1, figsize=(9, 6))
                 plt.boxplot([dsc_n, h95_n, avd_n, recall_n, f1_n])
                 plt.xticks([1, 2, 3, 4, 5], ['dsc', 'h95', 'avd', 'recall', 'f1'])
-                plt.title(["Overall performance of the network"])
+                # plt.title(["Rendimiento general de la red"])
                 plt.savefig(imagesDir + 'all.png')
+
+                plt.figure(1, figsize=(9, 6))
+                plt.boxplot([dsc_n, recall_n, f1_n])
+                plt.xticks([1, 2, 3], ['dsc','recall', 'f1'])
+                # plt.title(["Rendimiento de toda la red"])
+                plt.savefig(imagesDir + 'all_max.png')
+
+                plt.figure(1, figsize=(9, 6))
+                plt.boxplot([h95_n, avd_n ])
+                plt.xticks([1, 2], ['h95', 'avd'])
+                # plt.title(["Overall performance of the network"])
+                plt.savefig(imagesDir + 'all_min.png')
         else:    
             if not load:
                 if len(centers) > 3:
@@ -360,5 +372,40 @@ def main_test(load=True, verbose=False, centers=None, activation_maps=False, plo
     plt.show()
 
 
+def estadisticas():
+    '''
+        Metodologia para obtener las estadisticas
+        '''
+    dsc_ut = np.load(dataDir + 'dsc_ut.npy')
+    h95_ut = np.load(dataDir + 'h95_ut.npy')
+    avd_ut = np.load(dataDir + 'avd_ut.npy')
+    recall_ut = np.load(dataDir + 'recall_ut.npy')
+    f1_ut = np.load(dataDir + 'f1_ut.npy')
+
+    dsc_ge3t = np.load(dataDir + 'dsc_ge3t.npy')
+    h95_ge3t = np.load(dataDir + 'h95_ge3t.npy')
+    avd_ge3t = np.load(dataDir + 'avd_ge3t.npy')
+    recall_ge3t = np.load(dataDir + 'recall_ge3t.npy')
+    f1_ge3t = np.load(dataDir + 'f1_ge3t.npy')
+
+    dsc_si = np.load(dataDir + 'dsc_si.npy')
+    h95_si = np.load(dataDir + 'h95_si.npy')
+    avd_si = np.load(dataDir + 'avd_si.npy')
+    recall_si = np.load(dataDir + 'recall_si.npy')
+    f1_si = np.load(dataDir + 'f1_si.npy')
+
+    a = np.array([[dsc_ut, h95_ut, avd_ut, recall_ut, f1_ut],
+                  [dsc_si, h95_si, avd_si, recall_si, f1_si],
+                  [dsc_ge3t, h95_ge3t, avd_ge3t, recall_ge3t, f1_ge3t]])
+
+    a = np.mean(a, axis=2)
+
+    print a
+
+    return a
+
+
 if "__main__" == __name__:
+
     main_test(centers=['Utretch', 'Singapore', 'GE3T'], plot_ind=False, activation_maps=True)
+    estadisticas()
